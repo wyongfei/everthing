@@ -1,0 +1,49 @@
+#!/bin/bash  
+## pptp.sh is writed by Mislost.  
+## Auto install and config pptpd vpn server  
+  
+  
+## Update system and install pptp  
+sudo apt-get -y update  
+sudo apt-get -y install ppp pptpd  
+  
+  
+## get ip and remoteip  
+PRIVATE_IP=`ifconfig eth0 | grep "inet addr:" | sed -n 's/.*inet addr:.∗  B.*/\1/p'`  
+SUBNET=`echo ${PRIVATE_IP%.*}.10-250`  
+  
+  
+## config /etc/pptpd.conf  
+sudo sed -i "s/^#localip .*/localip $IP/;s/^#remoteip.*/remoteip $SUBNET/" /etc/pptpd.conf  
+  
+  
+## config /etc/ppp/options  
+sudo sed -i 's/^# ms-dns.*/ms-dns 8.8.8.8/' /etc/ppp/options  
+  
+  
+## create vpn account  
+sudo sh -c 'echo "test     pptpd   test      *" >> /etc/ppp/chap-secrets'  
+  
+  
+## config ip_forward  
+sudo sed -i 's/^# net.ipv4.ipforward=.*/\1=1/' /etc/sysctl.conf  
+sudo sysctl -p  
+  
+  
+## iptables forward  
+sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE  
+echo "sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE" >> /etc/rc.local  
+  
+  
+sudo iptables -A FORWARD -p tcp --syn -s ${PRIVATE_IP%.*}.0/24 -j TCPMSS --set-mss 1356  
+echo "sudo iptables -A FORWARD -p tcp --syn -s ${PRIVATE_IP%.*}.0/24 -j TCPMSS --set-mss 1356  
+" >> /etc/rc.local  
+  
+  
+## restart pptpd service  
+sudo killall pptpd  
+sudo service pptpd restart  
+  
+  
+##  
+echo "Successful~!"  
